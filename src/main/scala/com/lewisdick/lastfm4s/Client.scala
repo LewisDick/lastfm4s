@@ -11,7 +11,6 @@ import com.lewisdick.lastfm4s.domain.{
   RootAlbumInfo,
   RootArtistInfo,
   RootSearchResult,
-  RootTagWithCount,
   RootTopTags,
   SearchResult,
   TagWithCount
@@ -19,18 +18,13 @@ import com.lewisdick.lastfm4s.domain.{
 import org.http4s.circe.CirceEntityCodec.circeEntityDecoder
 import io.circe.Decoder
 import org.http4s.QueryParamEncoder.stringQueryParamEncoder
-import org.http4s.client.Client
+import org.http4s.client.{Client => httpClient}
 import org.http4s.implicits.http4sLiteralsSyntax
 import org.http4s.{ EntityDecoder, Uri }
-
+import io.circe.disjunctionCodecs.decoderEither
 import scala.concurrent.ExecutionContext
 
-object ResultDecoder {
-  def create[T](implicit a: Decoder[ApiError], b: Decoder[T]): Decoder[Either[ApiError, T]] =
-    a.map(Left.apply) or b.map(Right.apply)
-}
-
-sealed trait LastFmClient[F[_]] {
+sealed trait Client[F[_]] {
   def addAlbumTags(
       artist: String,
       album: String,
@@ -38,6 +32,7 @@ sealed trait LastFmClient[F[_]] {
       signature: String,
       sessionKey: String
   ): F[Either[ApiError, Unit]]
+
   def getAlbumInfo(
       artist: String,
       album: String,
@@ -46,7 +41,7 @@ sealed trait LastFmClient[F[_]] {
       username: Option[String] = None,
       lang: Option[String] = None
   ): F[Either[ApiError, AlbumInfo]]
-  //  def getAlbumTags
+
   def getAlbumTopTags(
       artist: String,
       album: String,
@@ -54,15 +49,12 @@ sealed trait LastFmClient[F[_]] {
       mbid: Option[String] = None
   ): F[Either[ApiError, List[TagWithCount]]]
 
-  //  def removeAlbumTags
   def searchAlbums(
       album: String,
       limit: Option[Int] = None,
       page: Option[Int] = None
   ): F[Either[ApiError, SearchResult]]
-  //
-  //  def addArtistTags
-  //  def getArtistCorrection
+
   def getArtistInfo(
       artist: String,
       mbid: Option[String] = None,
@@ -70,6 +62,12 @@ sealed trait LastFmClient[F[_]] {
       autocorrect: Option[Boolean] = None,
       username: Option[String] = None
   ): F[Either[ApiError, ArtistInfo]]
+
+  //TODO Add unsupported endpoints:
+  //  def getAlbumTags
+  //  def removeAlbumTags
+  //  def addArtistTags
+  //  def getArtistCorrection
   //  def getSimilarArtists
   //  def getArtistTags
   //  def getArtistTopAlbums
@@ -77,20 +75,15 @@ sealed trait LastFmClient[F[_]] {
   //  def getArtistTopTracks
   //  def removeArtistTag
   //  def searchArtists
-  //
   //  def getMobileSession
   //  def getSession
   //  def getToken
-  //
   //  def getTopArtistsChart
   //  def getTopTagsChart
   //  def getTopTracksChart
-  //
   //  def getTopArtistsGeo
   //  def getTopTracksGeo
-  //
   //  def getLibraryArtists
-  //
   //  def getTagInfo
   //  def getSimilarTags
   //  def getTagTopAlbums
@@ -98,7 +91,6 @@ sealed trait LastFmClient[F[_]] {
   //  def getTagTopTracks
   //  def getTopTags
   //  def getTagWeeklyChartList
-  //
   //  def addTrackTags
   //  def getTrackCorrection
   //  def getTrackInfo
@@ -111,7 +103,6 @@ sealed trait LastFmClient[F[_]] {
   //  def searchTracks
   //  def unloveTrack
   //  def updateNowPlaying
-  //
   //  def getFriends
   //  def getUserInfo
   //  def getLovedTracks
@@ -126,14 +117,14 @@ sealed trait LastFmClient[F[_]] {
   //  def getUserWeeklyTrackChart
 }
 
-object LastFmClient {
-  def apply[F[_]: Sync: ConcurrentEffect: Applicative](client: Client[F], apiKey: String)(implicit
+object Client {
+  def apply[F[_]: Sync: ConcurrentEffect: Applicative](client: httpClient[F], apiKey: String)(implicit
       ec: ExecutionContext
-  ): LastFmClient[F] = {
+  ): Client[F] = {
     val uri                                                   = uri"http://ws.audioscrobbler.com/2.0/?format=json".withQueryParam("api_key", apiKey)
-    implicit val unitDecoder: Decoder[Either[ApiError, Unit]] = ResultDecoder.create[Unit]
+    implicit val unitDecoder: Decoder[Either[ApiError, Unit]] = decoderEither[ApiError, Unit]
 
-    new LastFmClient[F] {
+    new Client[F] {
       override def addAlbumTags(
           artist: String,
           album: String,
