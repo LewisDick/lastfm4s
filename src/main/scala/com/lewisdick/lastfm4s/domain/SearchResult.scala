@@ -1,9 +1,9 @@
 package com.lewisdick.lastfm4s.domain
 
 import io.circe.Decoder
-import io.circe.disjunctionCodecs.decoderEither
 import io.circe.generic.auto._
 import io.circe.generic.semiauto.deriveDecoder
+import com.lewisdick.lastfm4s.domain.ApiError.decoderError
 
 case class RootSearchResult(results: SearchResult) extends Root[SearchResult] {
   override def get: SearchResult = results
@@ -22,5 +22,5 @@ object SearchResult {
     case (t, s, i, a) => SearchResult(t, s, i, a.album)
   }
 
-  implicit val decoderResult: Decoder[Either[ApiError, RootSearchResult]] = decoderEither[ApiError, RootSearchResult]
+  implicit val decoderResult: Decoder[Either[ApiError, RootSearchResult]] = decoderError[RootSearchResult]
 }
