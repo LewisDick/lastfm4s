@@ -8,7 +8,7 @@ import org.http4s.circe.decodeUri
 case class Image(url: Uri, size: ImageSize)
 
 object Image {
-  implicit val decoder = Decoder.forProduct2[Image, Uri, ImageSize]("#text", "size") {
+  implicit val decoder: Decoder[Image] = Decoder.forProduct2[Image, Uri, ImageSize]("#text", "size") {
     case (u, s) => Image(u, s)
   }
 }

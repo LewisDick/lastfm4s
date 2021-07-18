@@ -1,10 +1,10 @@
 package com.lewisdick.lastfm4s.domain
 
-import com.lewisdick.lastfm4s.ResultDecoder
 import io.circe.Decoder
 import io.circe.generic.semiauto.deriveDecoder
 import org.http4s.Uri
-import org.http4s.circe.decodeUri
+import com.lewisdick.lastfm4s.domain.ApiError.decoderError
+import org.http4s.circe.decodeUri // USED FOR DECODING TAG
 
 sealed trait BaseTag {
   val name: String
@@ -33,5 +33,5 @@ object TagWithCount {
   implicit val decodeRootTagWithCount: Decoder[RootTagWithCount] = deriveDecoder[RootTagWithCount]
   implicit val decodeRootTopTags: Decoder[RootTopTags] =
     Decoder.forProduct1[RootTopTags, RootTagWithCount]("toptags")(t => RootTopTags(t.tag))
-  implicit val decoderResult: Decoder[Either[ApiError, RootTopTags]] = ResultDecoder.create[RootTopTags]
+  implicit val decoderResult: Decoder[Either[ApiError, RootTopTags]] = decoderError[RootTopTags]
 }

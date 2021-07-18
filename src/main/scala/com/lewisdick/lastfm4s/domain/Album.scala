@@ -1,11 +1,11 @@
 package com.lewisdick.lastfm4s.domain
 
-import com.lewisdick.lastfm4s.ResultDecoder
 import io.circe.Decoder
 import io.circe.Decoder.decodeList
 import io.circe.generic.semiauto.deriveDecoder
 import org.http4s.Uri
 import org.http4s.circe.decodeUri
+import com.lewisdick.lastfm4s.domain.ApiError.decoderError
 
 abstract class Root[T] {
   def get: T
@@ -55,7 +55,7 @@ object AlbumInfo {
 
   implicit val decodeRootAlbumInfo: Decoder[RootAlbumInfo]             = deriveDecoder[RootAlbumInfo]
   implicit val decodeRootAlbum: Decoder[RootAlbum]                     = deriveDecoder[RootAlbum]
-  implicit val decoderResult: Decoder[Either[ApiError, RootAlbumInfo]] = ResultDecoder.create[RootAlbumInfo]
+  implicit val decoderResult: Decoder[Either[ApiError, RootAlbumInfo]] = decoderError[RootAlbumInfo]
 }
 
 case class Wiki(published: String, summary: String, content: String)
