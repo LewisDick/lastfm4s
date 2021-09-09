@@ -8,7 +8,8 @@ final case class ApiError(error: ErrorCode, message: String)
 
 object ApiError {
   implicit val decoder: Decoder[ApiError] = deriveDecoder[ApiError]
-  implicit def decodeError[T](implicit a:Decoder[ApiError], b: Decoder[T]): Decoder[Either[ApiError, T]] = a.map(Left.apply) or b.map(Right.apply)
+  implicit def decodeError[T](implicit a: Decoder[ApiError], b: Decoder[T]): Decoder[Either[ApiError, T]] =
+    a.map(Left.apply) or b.map(Right.apply)
 }
 
 sealed abstract class ErrorCode(val value: Int) extends IntEnumEntry

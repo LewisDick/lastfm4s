@@ -18,7 +18,7 @@ import com.lewisdick.lastfm4s.domain.{
 import org.http4s.circe.CirceEntityCodec.circeEntityDecoder
 import io.circe.Decoder
 import org.http4s.QueryParamEncoder.stringQueryParamEncoder
-import org.http4s.client.{Client => HttpClient}
+import org.http4s.client.{ Client => HttpClient }
 import org.http4s.implicits.http4sLiteralsSyntax
 import org.http4s.{ EntityDecoder, Uri }
 import com.lewisdick.lastfm4s.domain.ApiError._
