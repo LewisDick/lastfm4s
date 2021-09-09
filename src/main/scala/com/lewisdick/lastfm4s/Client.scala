@@ -18,11 +18,12 @@ import com.lewisdick.lastfm4s.domain.{
 import org.http4s.circe.CirceEntityCodec.circeEntityDecoder
 import io.circe.Decoder
 import org.http4s.QueryParamEncoder.stringQueryParamEncoder
-import org.http4s.client.{ Client => httpClient }
+import org.http4s.client.{ Client => HttpClient }
 import org.http4s.implicits.http4sLiteralsSyntax
 import org.http4s.{ EntityDecoder, Uri }
+import com.lewisdick.lastfm4s.domain.ApiError._
+
 import scala.concurrent.ExecutionContext
-import com.lewisdick.lastfm4s.domain.ApiError.decoderError
 
 sealed trait Client[F[_]] {
   def addAlbumTags(
@@ -118,11 +119,11 @@ sealed trait Client[F[_]] {
 }
 
 object Client {
-  def apply[F[_]: Sync: ConcurrentEffect: Applicative](client: httpClient[F], apiKey: String)(implicit
+  def apply[F[_]: Sync: ConcurrentEffect: Applicative](client: HttpClient[F], apiKey: String)(implicit
       ec: ExecutionContext
   ): Client[F] = {
     val uri                                                   = uri"http://ws.audioscrobbler.com/2.0/?format=json".withQueryParam("api_key", apiKey)
-    implicit val unitDecoder: Decoder[Either[ApiError, Unit]] = decoderError[Unit]
+    implicit val unitDecoder: Decoder[Either[ApiError, Unit]] = decodeError[Unit]
 
     new Client[F] {
       override def addAlbumTags(
