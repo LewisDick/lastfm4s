@@ -4,7 +4,7 @@ import io.circe.Decoder
 import io.circe.generic.semiauto.deriveDecoder
 import org.http4s.Uri
 import org.http4s.circe.decodeUri
-import com.lewisdick.lastfm4s.domain.ApiError.decoderError
+import com.lewisdick.lastfm4s.domain.ApiError._
 
 case class ArtistInfo(
     name: String,
@@ -43,7 +43,7 @@ object Artist {
 
 object ArtistInfo {
   implicit val rootArtistInfoDecoder: Decoder[RootArtistInfo]           = deriveDecoder[RootArtistInfo]
-  implicit val decoderResult: Decoder[Either[ApiError, RootArtistInfo]] = decoderError[RootArtistInfo]
+  implicit val decoderResult: Decoder[Either[ApiError, RootArtistInfo]] = decodeError[RootArtistInfo]
   implicit val artistInfoDecoder: Decoder[ArtistInfo] =
     Decoder.forProduct8[ArtistInfo, String, String, Uri, List[Image], Stats, RootArtist, RootTag, Wiki](
       "name",

@@ -3,13 +3,12 @@ package com.lewisdick.lastfm4s.domain
 import enumeratum.values.{ IntCirceEnum, IntEnum, IntEnumEntry }
 import io.circe.Decoder
 import io.circe.generic.semiauto.deriveDecoder
-import io.circe.disjunctionCodecs.decoderEither
 
 final case class ApiError(error: ErrorCode, message: String)
 
 object ApiError {
-  implicit val decoder: Decoder[ApiError]                                             = deriveDecoder[ApiError]
-  implicit def decoderError[T](implicit dt: Decoder[T]): Decoder[Either[ApiError, T]] = decoderEither[ApiError, T]
+  implicit val decoder: Decoder[ApiError] = deriveDecoder[ApiError]
+  implicit def decodeError[T](implicit a:Decoder[ApiError], b: Decoder[T]): Decoder[Either[ApiError, T]] = a.map(Left.apply) or b.map(Right.apply)
 }
 
 sealed abstract class ErrorCode(val value: Int) extends IntEnumEntry
