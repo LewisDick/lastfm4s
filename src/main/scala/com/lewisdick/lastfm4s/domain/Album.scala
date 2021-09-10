@@ -1,8 +1,8 @@
 package com.lewisdick.lastfm4s.domain
 
 import com.lewisdick.lastfm4s.domain.ApiError._
-import io.circe.Decoder
-import io.circe.Decoder.decodeList
+import io.circe.{ Decoder, HCursor }
+import io.circe.Decoder.{ decodeList, Result }
 import io.circe.generic.semiauto.deriveDecoder
 import org.http4s.Uri
 import org.http4s.circe.decodeUri
@@ -21,6 +21,12 @@ final case class RootAlbum(album: List[Album]) extends Root[List[Album]] {
 
 case class Album(name: String, artist: String, mbid: String, image: List[Image])
 
+case class TopAlbum(name: String, mbid: String, playCount: Int, url: Uri, image: List[Image])
+
+case class TopAlbums(albums: List[TopAlbum]) extends Root[List[TopAlbum]] {
+  override def get: List[TopAlbum] = albums
+}
+
 case class AlbumInfo(
     name: String,
     artist: String,
@@ -33,6 +39,21 @@ case class AlbumInfo(
     tags: List[Tag],
     wiki: Wiki
 )
+
+object TopAlbum {
+  implicit val topAlbumDec: Decoder[TopAlbum] = Decoder.forProduct5[TopAlbum, String, String, Int, Uri, List[Image]](
+    "name",
+    "mbid",
+    "playcount",
+    "url",
+    "image"
+  )(TopAlbum.apply)
+
+  implicit val topAlbumsDec: Decoder[TopAlbums] = new Decoder[TopAlbums] {
+    override def apply(c: HCursor): Result[TopAlbums] =
+      c.downField("topalbums").downField("album").as[List[TopAlbum]].map(TopAlbums)
+  }
+}
 
 object AlbumInfo {
   implicit val decodeAlbum: Decoder[Album] = deriveDecoder[Album]
@@ -50,7 +71,7 @@ object AlbumInfo {
       "tags",
       "wiki"
     ) {
-      case (n, a, m, u, i, l, p, t, ta, w) => AlbumInfo(n, a, m, u, i, l, p, t.track, ta.tag, w)
+      case (n, a, m, u, i, l, p, t, ta, w) => AlbumInfo(n, a, m, u, i, l, p, t.track, ta.get, w)
     }
 
   implicit val decodeRootAlbumInfo: Decoder[RootAlbumInfo]             = deriveDecoder[RootAlbumInfo]
