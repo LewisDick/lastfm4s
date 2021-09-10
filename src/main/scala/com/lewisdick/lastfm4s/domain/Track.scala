@@ -23,6 +23,10 @@ case class TopTracks(tracks: List[TopTrack]) extends Root[List[TopTrack]] {
   override def get: List[TopTrack] = tracks
 }
 
+case class ChartTracks(tracks: List[TopTrack]) extends Root[List[TopTrack]] {
+  override def get: List[TopTrack] = tracks
+}
+
 final case class RootTrack(track: List[Track]) extends Root[List[Track]] {
   override def get: List[Track] = track
 }
@@ -42,6 +46,11 @@ object TopTrack {
   implicit val topTracksDec: Decoder[TopTracks] = new Decoder[TopTracks] {
     override def apply(c: HCursor): Result[TopTracks] =
       c.downField("toptracks").downField("track").as[List[TopTrack]].map(TopTracks)
+  }
+
+  implicit val chartTracksDec: Decoder[ChartTracks] = new Decoder[ChartTracks] {
+    override def apply(c: HCursor): Result[ChartTracks] =
+      c.downField("tracks").downField("track").as[List[TopTrack]].map(ChartTracks)
   }
 }
 

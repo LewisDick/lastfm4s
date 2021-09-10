@@ -8,17 +8,22 @@ import com.lewisdick.lastfm4s.domain.{
   AlbumInfo,
   ApiError,
   ArtistInfo,
+  ChartArtist,
+  ChartArtists,
+  ChartTracks,
   Correction,
   Root,
   RootAlbumInfo,
   RootArtistInfo,
   RootSearchResult,
+  RootTagInfo,
   RootTags,
   SearchArtist,
   SearchResult,
   SimilarArtist,
   SimilarArtists,
   Tag,
+  TagInfo,
   TagWithCount,
   TopAlbum,
   TopAlbums,
@@ -130,6 +135,21 @@ sealed trait Client[F[_]] {
       page: Option[String] = None
   ): F[Either[ApiError, SearchResult[SearchArtist]]]
 
+  def getTopArtistsChart(
+      page: Option[Int] = None,
+      limit: Option[Int] = None
+  ): F[Either[ApiError, List[ChartArtist]]]
+
+  def getTopTagsChart(
+      page: Option[Int] = None,
+      limit: Option[Int] = None
+  ): F[Either[ApiError, List[TagInfo]]]
+
+  def getTopTracksChart(
+      page: Option[Int] = None,
+      limit: Option[Int] = None
+  ): F[Either[ApiError, List[TopTrack]]]
+
   //TODO Add unsupported endpoints:
   //  def removeAlbumTags
   //  def addArtistTags
@@ -137,14 +157,13 @@ sealed trait Client[F[_]] {
   //  def addTrackTags
   //  def loveTrack
   //  def removeTrackTag
-
   //  def getMobileSession
   //  def getSession
   //  def getToken
-
-  //  def getTopArtistsChart
-  //  def getTopTagsChart
-  //  def getTopTracksChart
+  //  def scrobble
+  //  def searchTracks
+  //  def unloveTrack
+  //  def updateNowPlaying
 
   //  def getTopArtistsGeo
   //  def getTopTracksGeo
@@ -164,10 +183,6 @@ sealed trait Client[F[_]] {
   //  def getTrackTags
   //  def getTopTags
 
-  //  def scrobble
-  //  def searchTracks
-  //  def unloveTrack
-  //  def updateNowPlaying
   //  def getFriends
   //  def getUserInfo
   //  def getLovedTracks
@@ -286,7 +301,7 @@ object Client {
       ): F[Either[ApiError, E]] =
         client.expect[Either[ApiError, T]](uri).map(_.map(_.get))
 
-      private def toLastFmBoolean(bool: Boolean) =
+      private def toLastFmBoolean(bool: Boolean): String =
         if (bool)
           "1"
         else
@@ -376,6 +391,30 @@ object Client {
         send[RootSearchResult[SearchArtist], SearchResult[SearchArtist]](
           uri
             .withQueryParams(Map("method" -> "artist.search", "artist" -> artist))
+            .withOptionQueryParam("limit", limit)
+            .withOptionQueryParam("page", page)
+        )
+
+      override def getTopArtistsChart(page: Option[Int], limit: Option[Int]): F[Either[ApiError, List[ChartArtist]]] =
+        send[ChartArtists, List[ChartArtist]](
+          uri
+            .withQueryParams(Map("method" -> "chart.getTopArtists"))
+            .withOptionQueryParam("limit", limit)
+            .withOptionQueryParam("page", page)
+        )
+
+      override def getTopTagsChart(page: Option[Int], limit: Option[Int]): F[Either[ApiError, List[TagInfo]]] =
+        send[RootTagInfo, List[TagInfo]](
+          uri
+            .withQueryParams(Map("method" -> "chart.getTopTags"))
+            .withOptionQueryParam("limit", limit)
+            .withOptionQueryParam("page", page)
+        )
+
+      override def getTopTracksChart(page: Option[Int], limit: Option[Int]): F[Either[ApiError, List[TopTrack]]] =
+        send[ChartTracks, List[TopTrack]](
+          uri
+            .withQueryParams(Map("method" -> "chart.getTopTracks"))
             .withOptionQueryParam("limit", limit)
             .withOptionQueryParam("page", page)
         )

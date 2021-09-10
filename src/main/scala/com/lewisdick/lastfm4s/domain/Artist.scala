@@ -49,6 +49,31 @@ case class Correction(artist: TrackArtist) extends Root[TrackArtist] {
   override def get: TrackArtist = artist
 }
 
+case class ChartArtist(name: String, playCount: Int, listeners: Int, mbid: String, url: Uri, image: List[Image])
+
+case class ChartArtists(artists: List[ChartArtist]) extends Root[List[ChartArtist]] {
+  override def get: List[ChartArtist] = artists
+}
+
+object ChartArtist {
+  implicit val chartArtistDec: Decoder[ChartArtist] =
+    Decoder.forProduct6[ChartArtist, String, Int, Int, String, Uri, List[Image]](
+      "name",
+      "playcount",
+      "listeners",
+      "mbid",
+      "url",
+      "image"
+    )(ChartArtist.apply)
+
+  implicit val chartArtistsDec: Decoder[ChartArtists] = new Decoder[ChartArtists] {
+    override def apply(c: HCursor): Result[ChartArtists] =
+      c.downField("artists").downField("artist").as[List[ChartArtist]].map(ChartArtists.apply)
+  }
+
+  implicit val chartArtistResult: Decoder[Either[ApiError, ChartArtists]] = decodeError[ChartArtists]
+}
+
 object Correction {
   implicit val correctionDec: Decoder[Correction] = new Decoder[Correction] {
     override def apply(c: HCursor): Result[Correction] =

@@ -1,5 +1,6 @@
 package com.lewisdick.lastfm4s.domain
 
+import cats.implicits.none
 import com.lewisdick.lastfm4s.domain.ApiError._
 import io.circe.{ Decoder, HCursor }
 import io.circe.Decoder.Result
@@ -13,6 +14,33 @@ sealed trait BaseTag {
 }
 final case class Tag(name: String, url: Uri)                      extends BaseTag
 final case class TagWithCount(name: String, url: Uri, count: Int) extends BaseTag
+
+case class TagInfo(name: String, url: Uri, reach: Int, taggings: Int, wiki: Option[Wiki])
+
+case class RootTagInfo(tags: List[TagInfo]) extends Root[List[TagInfo]] {
+  override def get: List[TagInfo] = tags
+}
+
+object TagInfo {
+
+  implicit val tagInfoDec: Decoder[TagInfo] = new Decoder[TagInfo] {
+    override def apply(c: HCursor): Result[TagInfo] =
+      for {
+        name     <- c.downField("name").as[String]
+        url      <- c.downField("url").as[Uri]
+        reach    <- c.downField("reach").as[Int]
+        taggings <- c.downField("taggings").as[Int]
+        wiki     <- Right(c.downField("wiki").as[Wiki].fold[Option[Wiki]](_ => none[Wiki], w => Some(w)))
+      } yield TagInfo(name, url, reach, taggings, wiki)
+  }
+
+  implicit val rootTagInfoDec: Decoder[RootTagInfo] = new Decoder[RootTagInfo] {
+    override def apply(c: HCursor): Result[RootTagInfo] =
+      c.downField("tags").downField("tag").as[List[TagInfo]].map(RootTagInfo.apply)
+  }
+
+  implicit val chartArtistResult: Decoder[Either[ApiError, RootTagInfo]] = decodeError[RootTagInfo]
+}
 
 object Tag {
   implicit val decodeTag: Decoder[Tag]                                = deriveDecoder[Tag]
@@ -43,6 +71,6 @@ object TagWithCount {
     override def apply(c: HCursor): Result[TopTags] =
       c.downField("toptags").downField("tag").as[List[TagWithCount]].map(TopTags)
   }
-  implicit val decoderResult: Decoder[Either[ApiError, TopTags]] = decodeError[TopTags]
 
+  implicit val decoderResult: Decoder[Either[ApiError, TopTags]] = decodeError[TopTags]
 }
