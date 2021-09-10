@@ -4,16 +4,28 @@ import cats.Applicative
 import cats.implicits._
 import cats.effect.{ ConcurrentEffect, Sync }
 import com.lewisdick.lastfm4s.domain.{
+  Album,
   AlbumInfo,
   ApiError,
   ArtistInfo,
+  Correction,
   Root,
   RootAlbumInfo,
   RootArtistInfo,
   RootSearchResult,
-  RootTopTags,
+  RootTags,
+  SearchArtist,
   SearchResult,
-  TagWithCount
+  SimilarArtist,
+  SimilarArtists,
+  Tag,
+  TagWithCount,
+  TopAlbum,
+  TopAlbums,
+  TopTags,
+  TopTrack,
+  TopTracks,
+  TrackArtist
 }
 import org.http4s.circe.CirceEntityCodec.circeEntityDecoder
 import io.circe.Decoder
@@ -43,6 +55,14 @@ sealed trait Client[F[_]] {
       lang: Option[String] = None
   ): F[Either[ApiError, AlbumInfo]]
 
+  def getAlbumTags(
+      artist: String,
+      album: String,
+      user: String,
+      autocorrect: Option[Boolean] = None,
+      mbid: Option[Boolean] = None
+  ): F[Either[ApiError, List[Tag]]]
+
   def getAlbumTopTags(
       artist: String,
       album: String,
@@ -54,7 +74,7 @@ sealed trait Client[F[_]] {
       album: String,
       limit: Option[Int] = None,
       page: Option[Int] = None
-  ): F[Either[ApiError, SearchResult]]
+  ): F[Either[ApiError, SearchResult[Album]]]
 
   def getArtistInfo(
       artist: String,
@@ -64,27 +84,73 @@ sealed trait Client[F[_]] {
       username: Option[String] = None
   ): F[Either[ApiError, ArtistInfo]]
 
+  def getArtistCorrection(
+      artist: String
+  ): F[Either[ApiError, TrackArtist]]
+
+  def getSimilarArtists(
+      artist: String,
+      mbid: Option[String] = None,
+      limit: Option[Int] = None,
+      autocorrect: Option[Boolean] = None
+  ): F[Either[ApiError, List[SimilarArtist]]]
+
+  def getArtistTags(
+      artist: String,
+      user: String,
+      mbid: Option[Boolean] = None,
+      autocorrect: Option[Boolean] = None
+  ): F[Either[ApiError, List[Tag]]]
+
+  def getArtistTopAlbums(
+      artist: String,
+      mbid: Option[Boolean] = None,
+      autocorrect: Option[Boolean] = None,
+      page: Option[Int] = None,
+      limit: Option[Int] = None
+  ): F[Either[ApiError, List[TopAlbum]]]
+
+  def getArtistTopTags(
+      artist: String,
+      mbid: Option[String] = None,
+      autocorrect: Option[Boolean] = None
+  ): F[Either[ApiError, List[TagWithCount]]]
+
+  def getArtistTopTracks(
+      artist: String,
+      mbid: Option[String] = None,
+      autocorrect: Option[Boolean] = None,
+      page: Option[Int] = None,
+      limit: Option[Int] = None
+  ): F[Either[ApiError, List[TopTrack]]]
+
+  def searchArtists(
+      artist: String,
+      limit: Option[Int] = None,
+      page: Option[String] = None
+  ): F[Either[ApiError, SearchResult[SearchArtist]]]
+
   //TODO Add unsupported endpoints:
-  //  def getAlbumTags
   //  def removeAlbumTags
   //  def addArtistTags
-  //  def getArtistCorrection
-  //  def getSimilarArtists
-  //  def getArtistTags
-  //  def getArtistTopAlbums
-  //  def getArtistTopTags
-  //  def getArtistTopTracks
   //  def removeArtistTag
-  //  def searchArtists
+  //  def addTrackTags
+  //  def loveTrack
+  //  def removeTrackTag
+
   //  def getMobileSession
   //  def getSession
   //  def getToken
+
   //  def getTopArtistsChart
   //  def getTopTagsChart
   //  def getTopTracksChart
+
   //  def getTopArtistsGeo
   //  def getTopTracksGeo
+
   //  def getLibraryArtists
+
   //  def getTagInfo
   //  def getSimilarTags
   //  def getTagTopAlbums
@@ -92,14 +158,12 @@ sealed trait Client[F[_]] {
   //  def getTagTopTracks
   //  def getTopTags
   //  def getTagWeeklyChartList
-  //  def addTrackTags
   //  def getTrackCorrection
   //  def getTrackInfo
   //  def getSimilarTracks
   //  def getTrackTags
   //  def getTopTags
-  //  def loveTrack
-  //  def removeTrackTag
+
   //  def scrobble
   //  def searchTracks
   //  def unloveTrack
@@ -161,8 +225,8 @@ object Client {
           album: String,
           limit: Option[Int] = None,
           page: Option[Int]
-      ): F[Either[ApiError, SearchResult]] =
-        send[RootSearchResult, SearchResult](
+      ): F[Either[ApiError, SearchResult[Album]]] =
+        send[RootSearchResult[Album], SearchResult[Album]](
           uri
             .withQueryParams(
               Map(
@@ -190,13 +254,27 @@ object Client {
             .withOptionQueryParam("lang", lang)
         )
 
+      override def getAlbumTags(
+          artist: String,
+          album: String,
+          user: String,
+          autocorrect: Option[Boolean],
+          mbid: Option[Boolean]
+      ): F[Either[ApiError, List[Tag]]] =
+        send[RootTags, List[Tag]](
+          uri
+            .withQueryParams(Map("method" -> "album.getTags", "artist" -> artist, "album" -> album, "user" -> user))
+            .withOptionQueryParam("autocorrect", autocorrect.map(toLastFmBoolean))
+            .withOptionQueryParam("mbid", mbid)
+        )
+
       override def getAlbumTopTags(
           artist: String,
           album: String,
           autocorrect: Option[Boolean],
           mbid: Option[String]
       ): F[Either[ApiError, List[TagWithCount]]] =
-        send[RootTopTags, List[TagWithCount]](
+        send[TopTags, List[TagWithCount]](
           uri
             .withQueryParams(Map("method" -> "album.getTopTags", "artist" -> artist, "album" -> album))
             .withOptionQueryParam("autocorrect", autocorrect.map(toLastFmBoolean))
@@ -213,6 +291,94 @@ object Client {
           "1"
         else
           "0"
+
+      override def getArtistCorrection(artist: String): F[Either[ApiError, TrackArtist]] =
+        send[Correction, TrackArtist](
+          uri.withQueryParams(Map("method" -> "artist.getCorrection", "artist" -> artist))
+        )
+
+      override def getSimilarArtists(
+          artist: String,
+          mbid: Option[String],
+          limit: Option[Int],
+          autocorrect: Option[Boolean]
+      ): F[Either[ApiError, List[SimilarArtist]]] =
+        send[SimilarArtists, List[SimilarArtist]](
+          uri
+            .withQueryParams(Map("method" -> "artist.getSimilar", "artist" -> artist))
+            .withOptionQueryParam("autocorrect", autocorrect.map(toLastFmBoolean))
+            .withOptionQueryParam("mbid", mbid)
+            .withOptionQueryParam("limit", limit)
+        )
+
+      override def getArtistTags(
+          artist: String,
+          user: String,
+          mbid: Option[Boolean],
+          autocorrect: Option[Boolean]
+      ): F[Either[ApiError, List[Tag]]] =
+        send[RootTags, List[Tag]](
+          uri
+            .withQueryParams(Map("method" -> "artist.getTags", "artist" -> artist, "user" -> user))
+            .withOptionQueryParam("autocorrect", autocorrect.map(toLastFmBoolean))
+            .withOptionQueryParam("mbid", mbid)
+        )
+
+      override def getArtistTopAlbums(
+          artist: String,
+          mbid: Option[Boolean],
+          autocorrect: Option[Boolean],
+          page: Option[Int],
+          limit: Option[Int]
+      ): F[Either[ApiError, List[TopAlbum]]] =
+        send[TopAlbums, List[TopAlbum]](
+          uri
+            .withQueryParams(Map("method" -> "artist.getTopAlbums", "artist" -> artist))
+            .withOptionQueryParam("autocorrect", autocorrect.map(toLastFmBoolean))
+            .withOptionQueryParam("mbid", mbid)
+            .withOptionQueryParam("page", page)
+            .withOptionQueryParam("limit", limit)
+        )
+
+      override def getArtistTopTags(
+          artist: String,
+          mbid: Option[String],
+          autocorrect: Option[Boolean]
+      ): F[Either[ApiError, List[TagWithCount]]] =
+        send[TopTags, List[TagWithCount]](
+          uri
+            .withQueryParams(Map("method" -> "artist.getTopTags", "artist" -> artist))
+            .withOptionQueryParam("autocorrect", autocorrect.map(toLastFmBoolean))
+            .withOptionQueryParam("mbid", mbid)
+        )
+
+      override def getArtistTopTracks(
+          artist: String,
+          mbid: Option[String],
+          autocorrect: Option[Boolean],
+          page: Option[Int],
+          limit: Option[Int]
+      ): F[Either[ApiError, List[TopTrack]]] =
+        send[TopTracks, List[TopTrack]](
+          uri
+            .withQueryParams(Map("method" -> "artist.getTopTracks", "artist" -> artist))
+            .withOptionQueryParam("autocorrect", autocorrect.map(toLastFmBoolean))
+            .withOptionQueryParam("mbid", mbid)
+            .withOptionQueryParam("page", page)
+            .withOptionQueryParam("limit", limit)
+        )
+
+      override def searchArtists(
+          artist: String,
+          limit: Option[Int],
+          page: Option[String]
+      ): F[Either[ApiError, SearchResult[SearchArtist]]] =
+        send[RootSearchResult[SearchArtist], SearchResult[SearchArtist]](
+          uri
+            .withQueryParams(Map("method" -> "artist.search", "artist" -> artist))
+            .withOptionQueryParam("limit", limit)
+            .withOptionQueryParam("page", page)
+        )
     }
   }
 }

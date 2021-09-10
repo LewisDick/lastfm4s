@@ -1,10 +1,12 @@
 package com.lewisdick.lastfm4s.domain
 
-import io.circe.Decoder
+import io.circe.{ Decoder, HCursor }
 import io.circe.generic.semiauto.deriveDecoder
 import org.http4s.Uri
 import org.http4s.circe.decodeUri
 import com.lewisdick.lastfm4s.domain.ApiError._
+import com.lewisdick.lastfm4s.domain.Artist.trackArtistDecoder
+import io.circe.Decoder.Result
 
 case class ArtistInfo(
     name: String,
@@ -29,7 +31,52 @@ case class Artist(name: String, url: Uri, image: List[Image])
 
 case class TrackArtist(name: String, mbid: String, url: Uri)
 
+case class SimilarArtist(name: String, mbid: String, similarity: Float, url: Uri, image: List[Image])
+
+case class SimilarArtists(artists: List[SimilarArtist]) extends Root[List[SimilarArtist]] {
+  override def get: List[SimilarArtist] = artists
+}
+
 case class Stats(listeners: Int, playcount: Int)
+
+case class RootSearchArtist(artist: List[SearchArtist]) extends Root[List[SearchArtist]] {
+  override def get: List[SearchArtist] = artist
+}
+
+case class SearchArtist(name: String, listeners: Int, mbid: String, url: Uri, image: List[Image])
+
+case class Correction(artist: TrackArtist) extends Root[TrackArtist] {
+  override def get: TrackArtist = artist
+}
+
+object Correction {
+  implicit val correctionDec: Decoder[Correction] = new Decoder[Correction] {
+    override def apply(c: HCursor): Result[Correction] =
+      c.downField("corrections").downField("correction").downField("artist").as[TrackArtist].map(Correction.apply)
+  }
+
+  implicit val correctionResult: Decoder[Either[ApiError, Correction]] = decodeError[Correction]
+}
+
+object SearchArtist {
+  implicit val rootSearchArtistDec: Decoder[RootSearchArtist] = deriveDecoder
+  implicit val searchArtistDec: Decoder[SearchArtist]         = deriveDecoder
+}
+
+object SimilarArtist {
+  implicit val similarArtistDec: Decoder[SimilarArtist] =
+    Decoder.forProduct5[SimilarArtist, String, String, Float, Uri, List[Image]](
+      "name",
+      "mbid",
+      "match",
+      "url",
+      "image"
+    )(SimilarArtist.apply)
+  implicit val similarArtistsDec: Decoder[SimilarArtists] = new Decoder[SimilarArtists] {
+    override def apply(c: HCursor): Result[SimilarArtists] =
+      c.downField("similarartists").downField("artist").as[List[SimilarArtist]].map(SimilarArtists)
+  }
+}
 
 object Stats {
   implicit val statsDecoder: Decoder[Stats] = deriveDecoder[Stats]
@@ -55,6 +102,6 @@ object ArtistInfo {
       "tags",
       "bio"
     ) {
-      case (n, m, u, i, s, si, t, b) => ArtistInfo(n, m, u, i, s, si.artist, t.tag, b)
+      case (n, m, u, i, s, si, t, b) => ArtistInfo(n, m, u, i, s, si.artist, t.get, b)
     }
 }
